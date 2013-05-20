@@ -1,4 +1,5 @@
 require 'yaml'
+require 'json'
 
 class Square
   attr_accessor :adjacent_bombs, :revealed, :flagged, :bomb
@@ -13,21 +14,26 @@ class Square
 end
 
 class Game
-  attr_accessor :board, :bomblist, :start_time, :end_time
+  attr_accessor :board, :bomblist, :start_time, :end_time, :total_time
 
   def initialize
     @bomblist = []
+    @total_time = 0
   end
 
   def make_board(rows)
     @board = Array.new(rows) {Array.new(rows) {Square.new} }
-    assign_bombs
+    if rows == 9
+      assign_bombs(10)
+    else
+      assign_bombs(40)
+    end
     assign_fringes
     nil
   end
 
-  def assign_bombs
-    until @bomblist.count == 10
+  def assign_bombs(total)
+    until @bomblist.count == total
       xbomb = rand(@board.length)
       ybomb = rand(@board.length)
       unless @bomblist.include?([xbomb, ybomb])
@@ -113,7 +119,7 @@ class Game
       location.map!(&:to_i)
       if on_board?(location) == false || !["r", "f"].include?(move)
         puts "Invalid Choice: Bad input. \n\n"
-      elsif @board[location[0]][location[1]].flagged && move == "r" || @board[location[0]][location[1]].revealed && move == "f"
+      elsif @board[location[0]][location[1]].flagged && move == "r" || @board[location[0]][location[1]].revealed && move == "f" || @board[location[0]][location[1]].revealed && move == "r"
         puts "Invalid Choice: Spot has already been flagged or revealed\n\n"
       else
         break
@@ -189,17 +195,23 @@ class Game
   end
 
   def run_game
-
+    @start_time = Time.now
     until game_over?
       player_move = get_input
       if player_move == "s"
+        @end_time = Time.now
+        @total_time += @end_time - @start_time
+        puts "#{@total_time} seconds"
         save_game
         next
       end
       apply_move(player_move)
       print_board
     end
-    puts "Game ended"
+    @end_time = Time.now
+    @total_time += @end_time - @start_time
+
+    puts "Game ended. Time taken is #{@total_time} seconds"
     @bomblist.each do |bomb|
       if @board[bomb[0]][bomb[1]].revealed
         puts "YOU HIT A BOMB \n\n"
@@ -214,6 +226,30 @@ class Game
     end
     puts "You won!"
     print_board
+    high_scores(@total_time)
+  end
+
+  def high_scores(total_time)
+    puts "What is your name?"
+    name = gets.chomp
+    high_scores = {name => total_time}
+
+    a = File.readlines("high_scores.txt")
+    a.each do |line|
+      individual_scores = JSON.parse(line)
+      high_scores = high_scores.merge(individual_scores)
+    end
+
+    sorted_times = high_scores.sort_by {|k, v| v }
+    puts "\nHigh score list is:"
+    sorted_times.each do |k, v|
+      puts "#{k}: #{v} seconds"
+    end
+
+    File.open("high_scores.txt", "w") do |f|
+      f.puts "#{high_scores.to_json}"
+      f.close
+    end
   end
 
   def begin_game
@@ -233,7 +269,12 @@ class Game
     savefile.close
   end
 
-  def admin_panel
+end
+
+class Minesweeper
+
+  def initialize
+
     puts "Welcome to Minesweeper. [N]ew or [L]oad game?"
     input = gets.chomp.downcase
     case input
@@ -252,5 +293,4 @@ class Game
         puts "Invalid answer"
     end
   end
-
 end
