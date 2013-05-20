@@ -35,31 +35,26 @@ class Game
     end
   end
 
-# Helper method for assign_fringes. DO NOT CALL
-  def generate_fringes
+  def generate_adjacents(location)
     adjacents = []
     fringes = []
 
-    @bomblist.each do |bomb|
-      x = bomb[0]
-      y = bomb[1]
+    x = location[0]
+    y = location[1]
 
-      adjacents += [
-        [x+1,y],
-        [x+1,y+1],
-        [x+1,y-1],
-        [x,y+1],
-        [x,y-1],
-        [x-1,y+1],
-        [x-1,y],
-        [x-1,y-1]
-      ]
+    adjacents += [
+      [x+1,y],
+      [x+1,y+1],
+      [x+1,y-1],
+      [x,y+1],
+      [x,y-1],
+      [x-1,y+1],
+      [x-1,y],
+      [x-1,y-1]
+    ]
 
-
-      fringes = adjacents.select do |location|
-        !@bomblist.include?(location) && on_board?(location)
-      end
-
+    fringes = adjacents.select do |location|
+      !@bomblist.include?(location) && on_board?(location)
     end
 
     fringes
@@ -70,7 +65,10 @@ class Game
   end
 
   def assign_fringes
-    fringes = generate_fringes
+    fringes = []
+    @bomblist.each do |bomb|
+      fringes += generate_adjacents(bomb)
+    end
 
     fringes.each do |coordinates|
       @board[coordinates[0]][coordinates[1]].adjacent_bombs += 1
@@ -110,16 +108,14 @@ class Game
       location = choice[1].split(",")
       location.map!(&:to_i)
       if on_board?(location) == false || !["r", "f"].include?(move)
-        puts "Invalid choice\n\n"
+        puts "Invalid Choice: Bad input. \n\n"
+      elsif @board[location[0]][location[1]].flagged && move == "r" || @board[location[0]][location[1]].revealed && move == "f"
+          puts "Invalid Choice: Spot has already been flagged or revealed\n\n"
       else
         break
       end
     end
     [move, location]
-  end
-
-  def run_game
-
   end
 
   def apply_move(input)
@@ -129,9 +125,33 @@ class Game
     case move
       when "r"
         @board[location[0]][location[1]].revealed = true
+        if @board[location[0]][location[1]].bomb
+          return nil
+        end
+        reveal_adjacents(location)
       when "f"
         @board[location[0]][location[1]].flagged = !@board[location[0]][location[1]].flagged
     end
+  end
+
+  def reveal_adjacents(location)
+    #queue starts with selected square
+    queue = [location]
+    history = []
+
+    until queue.empty?
+      coord = queue.shift
+      history << coord
+      if @board[coord[0]][coord[1]].adjacent_bombs == 0
+        candidates = generate_adjacents(coord)
+
+        candidates = candidates.select {|k| !history.include?(k)}
+
+        queue += candidates
+      end
+      @board[coord[0]][coord[1]].revealed = true
+    end
+
   end
 
   def game_over?
@@ -160,10 +180,36 @@ class Game
     #game is over if:
       #bomb has been revealed
       #all bombs flagged AND all non-bombs have been revealed
-      #
-    a || b && nonbombcounter == ((@board.size)**2 - @bomblist.count)
+
+    a || (b && nonbombcounter == ((@board.size)**2 - @bomblist.count))
   end
 
+  def run_game
+    puts "Welcome to Minesweeper. 9x9 or a 16x16 game? [9/16]?"
+    make_board(gets.chomp.to_i)
+    puts "Game start!"
+    print_board
+    until game_over?
+      player_move = get_input
+      apply_move(player_move)
+      print_board
+    end
+    puts "Game ended"
+    @bomblist.each do |bomb|
+      if @board[bomb[0]][bomb[1]].revealed
+        puts "YOU HIT A BOMB \n\n"
+        @board.each do |row|
+          row.each do |spot|
+            spot.revealed = true
+          end
+        end
+        print_board
+        return
+      end
+    end
+    puts "You won!"
+    print_board
+  end
 
 end
 
