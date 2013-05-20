@@ -21,6 +21,7 @@ class Game
     @board = Array.new(rows) {Array.new(rows) {Square.new} }
     assign_bombs
     assign_fringes
+    nil
   end
 
   def assign_bombs
@@ -81,7 +82,11 @@ class Game
       print_array = []
       row.each do |spot|
         if spot.revealed == false
-          print_array << "*"
+          if spot.flagged == true
+            print_array << "F"
+          else
+            print_array << "*"
+          end
         elsif spot.bomb == true
           print_array << "B"
         else
@@ -90,6 +95,7 @@ class Game
       end
       puts print_array.inspect
     end
+    nil
   end
 
   def get_input
@@ -116,30 +122,55 @@ class Game
 
   end
 
-  def apply_move(move)
+  def apply_move(input)
+    move = input[0]
+    location = input[1]
 
+    case move
+      when "r"
+        @board[location[0]][location[1]].revealed = true
+      when "f"
+        @board[location[0]][location[1]].flagged = !@board[location[0]][location[1]].flagged
+    end
   end
 
   def game_over?
+    a = nil
+    b = true
+    nonbombcounter = 0
+
     @board.each do |row|
       row.each do |spot|
-        return true if spot.bomb && spot.revealed
-        return false if !spot.bomb && !spot.revealed
+        if spot.revealed
+          if spot.bomb
+            a = true
+          else
+            nonbombcounter += 1
+          end
+        end
       end
     end
 
     @bomblist.each do |location|
       if @board[location[0]][location[1]].flagged == false
-        return false
+        b = false
       end
     end
-    true
+
+    #game is over if:
+      #bomb has been revealed
+      #all bombs flagged AND all non-bombs have been revealed
+      #
+    a || b && nonbombcounter == ((@board.size)**2 - @bomblist.count)
   end
 
 
 end
 
-a = Game.new
-a.make_board(9)
-a.print_board
-p a.game_over?
+# a = Game.new
+# a.make_board(9)
+# a.print_board
+# p a.bomblist
+# a.apply_move(["r",[2,7]])
+# p a.game_over?
+# a.print_board
