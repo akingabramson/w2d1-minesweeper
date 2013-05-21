@@ -1,3 +1,5 @@
+#!/usr/bin/env ruby
+
 require 'yaml'
 require 'json'
 
@@ -20,6 +22,72 @@ class Game
     @bomblist = []
     @total_time = 0
   end
+
+  def print_board
+    @board.each do |row|
+      print_array = []
+      row.each do |spot|
+        if spot.revealed == false
+          if spot.flagged == true
+            print_array << "F"
+          else
+            print_array << "*"
+          end
+        elsif spot.bomb == true
+          print_array << "B"
+        else
+          print_array << spot.adjacent_bombs.to_s
+        end
+      end
+      puts print_array.inspect
+    end
+    nil
+  end
+
+  def begin_game
+    puts "New Game. 9x9 or a 16x16 game? [9/16]?"
+    make_board(gets.chomp.to_i)
+    puts "Game start!"
+    print_board
+    run_game
+  end
+
+  def run_game
+    @start_time = Time.now
+    until game_over?
+      player_move = get_input
+      if player_move == "s"
+        @end_time = Time.now
+        @total_time += @end_time - @start_time
+        puts "#{@total_time} seconds"
+        save_game
+        next
+      end
+      apply_move(player_move)
+      print_board
+    end
+    @end_time = Time.now
+    @total_time += @end_time - @start_time
+
+    puts "Game ended. Time taken is #{@total_time} seconds"
+    @bomblist.each do |bomb|
+      if @board[bomb[0]][bomb[1]].revealed
+        puts "YOU HIT A BOMB \n\n"
+        @board.each do |row|
+          row.each do |spot|
+            spot.revealed = true
+          end
+        end
+        print_board
+        return
+      end
+    end
+    puts "You won!"
+    print_board
+    high_scores(@total_time)
+  end
+
+  private
 
   def make_board(rows)
     @board = Array.new(rows) {Array.new(rows) {Square.new} }
@@ -81,27 +149,6 @@ class Game
     fringes.each do |coordinates|
       @board[coordinates[0]][coordinates[1]].adjacent_bombs += 1
     end
-  end
-
-  def print_board
-    @board.each do |row|
-      print_array = []
-      row.each do |spot|
-        if spot.revealed == false
-          if spot.flagged == true
-            print_array << "F"
-          else
-            print_array << "*"
-          end
-        elsif spot.bomb == true
-          print_array << "B"
-        else
-          print_array << spot.adjacent_bombs.to_s
-        end
-      end
-      puts print_array.inspect
-    end
-    nil
   end
 
   def get_input
@@ -194,40 +241,6 @@ class Game
     a || (b && nonbombcounter == ((@board.size)**2 - @bomblist.count))
   end
 
-  def run_game
-    @start_time = Time.now
-    until game_over?
-      player_move = get_input
-      if player_move == "s"
-        @end_time = Time.now
-        @total_time += @end_time - @start_time
-        puts "#{@total_time} seconds"
-        save_game
-        next
-      end
-      apply_move(player_move)
-      print_board
-    end
-    @end_time = Time.now
-    @total_time += @end_time - @start_time
-
-    puts "Game ended. Time taken is #{@total_time} seconds"
-    @bomblist.each do |bomb|
-      if @board[bomb[0]][bomb[1]].revealed
-        puts "YOU HIT A BOMB \n\n"
-        @board.each do |row|
-          row.each do |spot|
-            spot.revealed = true
-          end
-        end
-        print_board
-        return
-      end
-    end
-    puts "You won!"
-    print_board
-    high_scores(@total_time)
-  end
 
   def high_scores(total_time)
     puts "What is your name?"
@@ -252,13 +265,6 @@ class Game
     end
   end
 
-  def begin_game
-    puts "New Game. 9x9 or a 16x16 game? [9/16]?"
-    make_board(gets.chomp.to_i)
-    puts "Game start!"
-    print_board
-    run_game
-  end
 
   def save_game
     puts "What do you want to name your save?"
@@ -294,3 +300,8 @@ class Minesweeper
     end
   end
 end
+
+a = Minesweeper.new
+
+
+
