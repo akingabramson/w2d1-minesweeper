@@ -56,6 +56,7 @@ class Game
     @start_time = Time.now
     until game_over?
       player_move = get_input
+      # Handle the saves functionality. Also preserves total time played
       if player_move == "s"
         @end_time = Time.now
         @total_time += @end_time - @start_time
@@ -69,6 +70,7 @@ class Game
     @end_time = Time.now
     @total_time += @end_time - @start_time
 
+    # Give total time played if the game ends no matter how
     puts "Game ended. Time taken is #{@total_time} seconds"
     @bomblist.each do |bomb|
       if @board[bomb[0]][bomb[1]].revealed
@@ -87,7 +89,7 @@ class Game
     high_scores(@total_time)
   end
 
-  private
+  # private
 
   def make_board(rows)
     @board = Array.new(rows) {Array.new(rows) {Square.new} }
@@ -137,7 +139,8 @@ class Game
   end
 
   def on_board?(location)
-    (0..@board.length-1).include?(location[0]) && (0..@board.length-1).include?(location[1])
+    borders = (0..@board.length-1)
+    borders.include?(location[0]) && borders.include?(location[1])
   end
 
   def assign_fringes
@@ -155,18 +158,23 @@ class Game
     move = nil
     location = []
     while true
-      puts "Player, make your choice. [R]eveal or [F]lag (x,y). || [S]ave to exit."
+      puts "Player, make your choice. [R]eveal or [F]lag (x,y). || [S]ave to save."
       #no invalids, misspellings or off board
       save_catch = gets.chomp
       return "s" if save_catch == "s"
 
+      # Handles whether you place a flag or reveal a square
       choice = save_catch.chomp.split(" ")
       move = choice[0].downcase
+
+      # The location at which you place or reveal
       location = choice[1].split(",")
       location.map!(&:to_i)
+      selected_square = @board[location[0]][location[1]]
+
       if on_board?(location) == false || !["r", "f"].include?(move)
         puts "Invalid Choice: Bad input. \n\n"
-      elsif @board[location[0]][location[1]].flagged && move == "r" || @board[location[0]][location[1]].revealed && move == "f" || @board[location[0]][location[1]].revealed && move == "r"
+      elsif selected_square.flagged && move == "r" || selected_square.revealed && (move == "f" || move == "r")
         puts "Invalid Choice: Spot has already been flagged or revealed\n\n"
       else
         break
@@ -178,16 +186,17 @@ class Game
   def apply_move(input)
     move = input[0]
     location = input[1]
+    square = @board[location[0]][location[1]]
 
     case move
       when "r"
-        @board[location[0]][location[1]].revealed = true
-        if @board[location[0]][location[1]].bomb
+        square.revealed = true
+        if square.bomb
           return nil
         end
         reveal_adjacents(location)
       when "f"
-        @board[location[0]][location[1]].flagged = !@board[location[0]][location[1]].flagged
+        square.flagged = !square.flagged
     end
   end
 
@@ -199,14 +208,15 @@ class Game
     until queue.empty?
       coord = queue.shift
       history << coord
-      if @board[coord[0]][coord[1]].adjacent_bombs == 0
+      square = @board[coord[0]][coord[1]]
+      if square.adjacent_bombs == 0
         candidates = generate_adjacents(coord)
 
         candidates = candidates.select {|k| !history.include?(k)}
 
         queue += candidates
       end
-      @board[coord[0]][coord[1]].revealed = true
+      square.revealed = true
     end
 
   end
@@ -269,9 +279,9 @@ class Game
   def save_game
     puts "What do you want to name your save?"
     filename = gets.chomp
-    a = self.to_yaml
+    game_state = self.to_yaml
     savefile = File.open("#{filename}.txt", "w")
-    savefile.puts a
+    savefile.puts game_state
     savefile.close
   end
 
@@ -285,8 +295,8 @@ class Minesweeper
     input = gets.chomp.downcase
     case input
       when "n"
-        a = Game.new
-        a.begin_game
+        new_game = Game.new
+        new_game.begin_game
       when "l"
         puts "Enter load file name"
         filename = gets.chomp
